@@ -1,4 +1,11 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+
 #include "systemcalls.h"
+
 
 /**
  * @param cmd the command to execute with system()
@@ -16,8 +23,15 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+    int ret = system(cmd);
+    if (NULL == cmd || ret == -1) {
+        return false;
+    }
+    else if (WIFEXITED(ret)) {
+        return 0 == WEXITSTATUS(ret);
+    }
 
-    return true;
+    return false;
 }
 
 /**
@@ -61,7 +75,30 @@ bool do_exec(int count, ...)
 
     va_end(args);
 
-    return true;
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        // parent process code
+        return false;
+    }
+    else if (0 == pid) {
+        // child process code
+        if (0 != execv(command[0], command)) {
+            return false;
+        }
+    } 
+    else {
+        // parent process code
+        int status;
+        if (-1 == waitpid(pid, &status, 0)) {
+            return false;
+        }
+        else if (WIFEXITED(status)){
+            return 0 == WEXITSTATUS(status);
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -95,5 +132,19 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 
     va_end(args);
 
-    return true;
+    int fd = open(outputfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    
+    if (fd < 0) {
+        return false;
+    }
+
+    // redirect stdout to a file
+    if (dup2(fd, STDOUT_FILENO) < 0 ) {
+        return false;
+    }
+
+    // now that stdout is redirected we don't need original file descriptor
+    close(fd);
+
+    return do_exec(count, args);
 }
