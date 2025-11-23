@@ -24,7 +24,7 @@ bool do_system(const char *cmd)
  *   or false() if it returned a failure
 */
     int ret = system(cmd);
-    if (NULL == cmd || ret == -1) {
+    if ((NULL == cmd) || (-1 == ret)) {
         return false;
     }
     else if (WIFEXITED(ret)) {
