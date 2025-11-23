@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 # Run unit tests for the assignment
 
 # Automate these steps from the readme:
