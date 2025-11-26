@@ -72,33 +72,34 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-
-    va_end(args);
-
     pid_t pid = fork();
+
+    bool ret = false;
 
     if (pid < 0) {
         // parent process code
-        return false;
+        ret = false;
     }
     else if (0 == pid) {
         // child process code
         if (0 != execv(command[0], command)) {
-            return false;
+            ret = false;
         }
     } 
     else {
         // parent process code
         int status;
         if (-1 == waitpid(pid, &status, 0)) {
-            return false;
+            ret = false;
         }
         else if (WIFEXITED(status)){
-            return 0 == WEXITSTATUS(status);
+            ret = (0 == WEXITSTATUS(status));
         }
     }
 
-    return false;
+    va_end(args);
+
+    return ret;
 }
 
 /**
@@ -130,21 +131,26 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *
 */
 
-    va_end(args);
-
     int fd = open(outputfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    bool ret = true;
     
     if (fd < 0) {
-        return false;
+        ret = false;
+    }
+    else {
+        // redirect stdout to a file
+        if (dup2(fd, STDOUT_FILENO) < 0 ) {
+            ret = false;
+        }
+        else {
+            // now that stdout is redirected we don't need original file descriptor
+            close(fd);
+            ret = do_exec(count, args);
+        }
     }
 
-    // redirect stdout to a file
-    if (dup2(fd, STDOUT_FILENO) < 0 ) {
-        return false;
-    }
+    va_end(args);
 
-    // now that stdout is redirected we don't need original file descriptor
-    close(fd);
+    return ret;
 
-    return do_exec(count, args);
 }
