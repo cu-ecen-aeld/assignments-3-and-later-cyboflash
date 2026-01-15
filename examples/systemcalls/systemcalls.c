@@ -24,14 +24,10 @@ bool do_system(const char *cmd)
  *   or false() if it returned a failure
 */
     int ret = system(cmd);
-    if (NULL == cmd || ret == -1) {
+    if (ret == -1) {
         return false;
     }
-    else if (WIFEXITED(ret)) {
-        return 0 == WEXITSTATUS(ret);
-    }
-
-    return false;
+    return WIFEXITED(ret) && WEXITSTATUS(ret) == 0;
 }
 
 /**
@@ -59,9 +55,6 @@ bool do_exec(int count, ...)
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
 
 /*
  * TODO:
@@ -83,9 +76,8 @@ bool do_exec(int count, ...)
     }
     else if (0 == pid) {
         // child process code
-        if (0 != execv(command[0], command)) {
-            return false;
-        }
+        execv(command[0], command);
+        exit(EXIT_FAILURE);
     } 
     else {
         // parent process code
@@ -93,14 +85,13 @@ bool do_exec(int count, ...)
         if (-1 == waitpid(pid, &status, 0)) {
             return false;
         }
-        else if (WIFEXITED(status)){
+        else if (WIFEXITED(status)) {
             return 0 == WEXITSTATUS(status);
         }
     }
 
     return false;
 }
-
 /**
 * @param outputfile - The full path to the file to write with command output.
 *   This file will be closed at completion of the function call.
@@ -117,34 +108,36 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
-
-
-/*
- * TODO
- *   Call execv, but first using https://stackoverflow.com/a/13784315/1446624 as a refernce,
- *   redirect standard out to a file specified by outputfile.
- *   The rest of the behaviour is same as do_exec()
- *
-*/
 
     va_end(args);
 
-    int fd = open(outputfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    
-    if (fd < 0) {
+    pid_t pid = fork();
+
+    if (pid < 0) {
         return false;
     }
-
-    // redirect stdout to a file
-    if (dup2(fd, STDOUT_FILENO) < 0 ) {
-        return false;
+    else if (0 == pid) {
+        int fd = open(outputfile, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+        if (fd < 0) {
+            exit(EXIT_FAILURE);
+        }
+        // redirect stdout to a file
+        if (dup2(fd, STDOUT_FILENO) < 0) {
+            exit(EXIT_FAILURE);
+        }
+        close(fd);
+        execv(command[0], command);
+        exit(EXIT_FAILURE);
+    }
+    else {
+        int status;
+        if (-1 == waitpid(pid, &status, 0)) {
+            return false;
+        }
+        else if (WIFEXITED(status)) {
+            return WEXITSTATUS(status) == 0;
+        }
     }
 
-    // now that stdout is redirected we don't need original file descriptor
-    close(fd);
-
-    return do_exec(count, args);
+    return false;
 }
