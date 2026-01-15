@@ -9,7 +9,6 @@ set -x
 mkdir -p build
 cd build
 cmake ..
-make clean
 make
 cd ..
 pwd
