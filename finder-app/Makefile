@@ -7,6 +7,7 @@ STRIP         = $(CROSS_COMPILE)strip
 CFLAGS = -Wall -Werror
 
 # Thanks to Job Vranish (https://spin.atomicobject.com/2016/08/26/makefile-c-projects/)
+
 TARGET_EXEC := writer
 
 BUILD_DIR := .
@@ -33,6 +34,8 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 # These files will have .d instead of .o as the output.
 CPPFLAGS := $(INC_FLAGS) -MMD -MP
 
+all: $(BUILD_DIR)/$(TARGET_EXEC)
+
 # The final build step.
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
@@ -42,7 +45,7 @@ $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-.PHONY: clean
+.PHONY: clean all
 clean:
 	rm -vf $(TARGET_EXEC) *.c.o *.c.d
 
